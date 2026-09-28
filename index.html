@@ -1,0 +1,263 @@
+<!doctype html>
+<html lang="en-GB">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Legoland Windsor day plan (age 4, about 95 cm)</title>
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Titan+One&family=Nunito:wght@600;700;800&display=swap" rel="stylesheet">
+<style>
+  :root { --red:#e3000b; --yellow:#ffd500; --blue:#006cb7; --green:#00a650; --black:#1b1b1b; --paper:#fff8dc; }
+  * { box-sizing:border-box; }
+  body { margin:0; font-family:"Nunito",system-ui,sans-serif; background:var(--paper); color:var(--black);
+    background-image:radial-gradient(circle at 12px 12px, rgba(0,0,0,.06) 6px, transparent 7px); background-size:24px 24px; }
+  h1,h2,h3,button,.num,.pin { font-family:"Titan One","Nunito",sans-serif; font-weight:400; }
+  header { position:relative; padding:26px 16px 14px; background:var(--red); color:#fff; border-bottom:6px solid #b30009; }
+  header::before { content:""; position:absolute; left:0; right:0; top:-2px; height:16px;
+    background:radial-gradient(circle at 14px 10px, #ff3b3b 7px, #b30009 8px, transparent 9px); background-size:28px 16px; }
+  header h1 { margin:0; font-size:1.45rem; letter-spacing:.5px; text-shadow:2px 2px 0 #7a0006; }
+  header p { margin:6px 0 0; font-size:.9rem; font-weight:700; }
+  .hero { display:inline-block; background:var(--yellow); color:var(--black); border-radius:6px; padding:2px 8px; margin-top:8px; font-weight:800; font-size:.85rem; transform:rotate(-2deg); box-shadow:2px 2px 0 #b38f00; }
+  #map { height:48vh; min-height:300px; border-bottom:6px solid var(--blue); }
+  .bar { display:flex; gap:8px; padding:12px 16px; flex-wrap:wrap; }
+  button { font-size:1rem; border:0; border-radius:8px; padding:10px 14px; background:var(--blue); color:#fff; cursor:pointer; box-shadow:0 4px 0 #004a7d; }
+  button:active { transform:translateY(3px); box-shadow:0 1px 0 #004a7d; }
+  button#share { background:var(--green); box-shadow:0 4px 0 #00733a; }
+  button.ghost { background:#fff; color:var(--black); box-shadow:0 4px 0 #bbb; }
+  main { padding:0 16px 40px; max-width:760px; margin:0 auto; }
+  h2 { font-size:1.2rem; margin:26px 0 10px; color:var(--blue); }
+  .stop { position:relative; background:var(--c,#e3000b); color:#fff; border-radius:10px; padding:18px 14px 12px; margin:22px 0 12px; box-shadow:0 6px 0 rgba(0,0,0,.25); }
+  .stop::before { content:""; position:absolute; left:16px; right:16px; top:-12px; height:14px;
+    background:radial-gradient(ellipse 13px 9px at 50% 60%, var(--c,#e3000b) 11px, transparent 12px); background-size:44px 14px; filter:brightness(1.1) drop-shadow(0 -1px 0 rgba(0,0,0,.2)); }
+  .stop.done { filter:grayscale(.6); opacity:.7; }
+  .stop.next { outline:4px dashed var(--black); outline-offset:4px; }
+  .stop.next h3::after { content:"NEXT!"; background:var(--black); color:var(--yellow); font-size:.7rem; padding:2px 6px; border-radius:4px; margin-left:4px; }
+  .stop h3 { margin:0; font-size:1.1rem; display:flex; gap:8px; align-items:center; cursor:pointer; flex-wrap:wrap; }
+  .num { display:inline-grid; place-items:center; width:30px; height:30px; border-radius:50%; background:#fff; color:var(--black); font-size:.95rem; flex:none; box-shadow:inset 0 -3px 0 rgba(0,0,0,.15); }
+  .time { font-family:"Nunito",sans-serif; font-weight:800; font-size:.85rem; margin-left:auto; white-space:nowrap; background:rgba(0,0,0,.2); padding:2px 8px; border-radius:6px; }
+  .stop p { margin:8px 0; font-size:.92rem; font-weight:600; }
+  .stop.light { color:var(--black); }
+  ul.rides { list-style:none; padding:0; margin:8px 0 0; background:#fff; color:var(--black); border-radius:8px; }
+  ul.rides li { display:flex; gap:10px; align-items:flex-start; padding:8px 10px; font-size:.95rem; font-weight:700; border-top:2px dotted #eee; }
+  ul.rides li:first-child { border-top:0; }
+  ul.rides input { width:22px; height:22px; margin:0; flex:none; accent-color:var(--green); }
+  .tag { font-size:.72rem; padding:1px 6px; border-radius:5px; background:#e8f1fb; color:var(--blue); margin-left:4px; white-space:nowrap; }
+  .must { background:var(--yellow); color:var(--black); }
+  .note { font-size:.9rem; font-weight:600; }
+  .card { background:#fff; border-radius:10px; padding:12px 14px; box-shadow:0 5px 0 rgba(0,0,0,.12); border:3px solid var(--black); }
+  table { border-collapse:collapse; width:100%; font-size:.9rem; font-weight:700; background:#fff; border-radius:10px; overflow:hidden; border:3px solid var(--black); }
+  td, th { border-bottom:2px dotted #ddd; padding:8px; text-align:left; }
+  th { background:var(--black); color:var(--yellow); font-family:"Titan One",sans-serif; font-weight:400; }
+  .legend { font-size:.82rem; font-weight:700; padding:8px 16px 0; }
+  .dot { display:inline-block; width:12px; height:12px; border-radius:3px; margin:0 4px 0 10px; vertical-align:middle; }
+  .pin { position:relative; display:grid; place-items:center; width:34px; height:26px; border-radius:4px; background:var(--red); color:#fff; font-size:.95rem; border:2px solid rgba(0,0,0,.35); box-shadow:0 3px 0 rgba(0,0,0,.35); }
+  .pin i { position:absolute; top:-6px; width:9px; height:6px; border-radius:3px 3px 0 0; background:inherit; border:2px solid rgba(0,0,0,.35); border-bottom:0; }
+  .pin i:nth-child(1){ left:4px; } .pin i:nth-child(2){ right:4px; }
+  .pin.done { background:var(--green); }
+  .pin.next { background:var(--yellow); color:var(--black); }
+  .mini { width:14px; height:14px; border-radius:3px; border:2px solid #fff; box-shadow:0 1px 3px rgba(0,0,0,.5); }
+  .confetti { position:fixed; top:-20px; width:14px; height:10px; border-radius:2px; z-index:9998; pointer-events:none; animation:fall 1.6s linear forwards; }
+  @keyframes fall { to { transform:translateY(105vh) rotate(540deg); } }
+  #toast { position:fixed; bottom:16px; left:50%; transform:translateX(-50%); background:var(--black); color:var(--yellow); padding:10px 16px; border-radius:8px; display:none; font-weight:800; z-index:9999; }
+  a { color:var(--blue); }
+</style>
+</head>
+<body>
+<header>
+  <h1>Our Legoland build plan</h1>
+  <p>Legoland Windsor, for one 4 year old builder at 90 to 95 cm. Tap a brick to find it on the map, tick rides as you go, and hit "Share progress" to send your ticks to the other parent.</p>
+  <span class="hero" id="score">0 rides built</span>
+</header>
+<div id="map"></div>
+<div class="legend">
+  <span class="dot" style="background:var(--yellow)"></span>next stop
+  <span class="dot" style="background:var(--red)"></span>to build
+  <span class="dot" style="background:var(--green)"></span>built
+  <span class="dot" style="background:#3a86ff"></span>food
+  <span class="dot" style="background:#6c757d"></span>toilets
+  <span class="dot" style="background:#111"></span>too tall for now
+</div>
+<div class="bar">
+  <button id="locate">Where am I?</button>
+  <button id="share">Share progress</button>
+  <button class="ghost" id="reset">Clear ticks</button>
+</div>
+
+<main>
+  <h2>The one rule for today</h2>
+  <p class="note card">Most rides a 90 to 95 cm child can do have a 0.9 m minimum, and an adult must ride with them. Staff measure at the entrance to each ride. If the first measure comes out under 0.9 m, drop the rides marked "0.9 m min" and keep the ones marked "no min". Everything marked 1.0 m or taller is a no today.</p>
+
+  <h2>Build instructions</h2>
+  <p class="note">Times assume you start around 11:30 and the park closes at 17:00 (check the Legoland app, closing is 17:00 or 18:00 in autumn). Starred rides are the ones to protect if you run short of time. The Legoland app shows live queue times.</p>
+  <div id="stops"></div>
+
+  <h2>Too tall for now (skip)</h2>
+  <table>
+    <tr><th>Ride</th><th>Minimum</th></tr>
+    <tr><td>Minifigure Speedway</td><td>1.05 m</td></tr>
+    <tr><td>The Dragon, Hydra's Challenge</td><td>1.0 m</td></tr>
+    <tr><td>Pirate Falls: Treasure Quest, Jolly Rocker</td><td>1.0 m</td></tr>
+    <tr><td>Flight of the Sky Lion, Fire &amp; Ice Freefall (all of Mythica)</td><td>1.0 m</td></tr>
+    <tr><td>Autumn's Riding Adventure</td><td>1.2 m</td></tr>
+    <tr><td>LEGO City Driving School (L-Drivers is the one for them)</td><td>1.1 m</td></tr>
+  </table>
+
+  <h2>Tips</h2>
+  <ul class="note card">
+    <li>Mythica, at the east end, has nothing they can ride. Skipping it saves about 40 minutes of walking.</li>
+    <li>The park sits on a hill. Use the Hill Train to go down and back up, and leave Miniland and the shops until the end, near the exit.</li>
+    <li>Splash Safari and Drench Towers are water play areas. In late September they may be closed or too cold, so bring spare clothes if you plan to try.</li>
+    <li>Haunted House Monster Party is dark and loud. It's fine for some 4 year olds and too much for others.</li>
+    <li>Lunch from 12:30 to 13:00 is the busiest time at every restaurant. Eating at 13:15 or later cuts the wait.</li>
+  </ul>
+  <p class="note">Sources: <a href="https://www.legoland.co.uk/plan-your-day/useful-guides/height-restrictions/">Legoland height restrictions</a>, <a href="https://www.legoland.co.uk/media/2j2pn0yd/ride-attraction-restriction-boards-guide_compressed.pdf">ride safety boards (PDF)</a>, map data © OpenStreetMap contributors. Pin positions come from OpenStreetMap and a few are approximate.</p>
+</main>
+<div id="toast"></div>
+
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script>
+const STOPS = [
+  { id:"duplo", name:"DUPLO Valley", time:"11:30 to 12:30", ll:[51.46520,-0.65100],
+    how:"Walk down from the entrance through Imagination and past Miniland (save Miniland for later). DUPLO Valley is built for this age.",
+    rides:[
+      ["duplo-dino","DUPLO Dino Coaster","0.9 m min",true],
+      ["duplo-airport","DUPLO Airport (they pilot a plane up and down)","0.9 m min",true],
+      ["duplo-express","DUPLO Express train","no min",false],
+      ["duplo-play","DUPLO Playtown and Brickville play areas","play",false],
+      ["splash","Splash Safari water play (if open and warm)","water",false]
+    ]},
+  { id:"city", name:"LEGO City", time:"12:30 to 13:15", ll:[51.46465,-0.64930],
+    how:"Next door to DUPLO Valley. L-Drivers is the ride most 4 year olds talk about afterwards: they drive a little car on their own.",
+    rides:[
+      ["ldrivers","L-Drivers (for 0.9 to 1.1 m, they drive alone)","0.9 m min",true],
+      ["fire","Fire Academy (pump the fire engine, squirt the fire)","0.9 m min",true],
+      ["deepsea","Deep Sea Adventure submarine","no min",true],
+      ["balloon","Balloon School","no min",false],
+      ["coastguard","Coastguard HQ boats","no min",false],
+      ["haunted","Haunted House Monster Party (dark and loud, optional)","0.9 m min",false]
+    ]},
+  { id:"lunch", name:"Lunch: City Walk pizza", time:"13:15 to 14:00", ll:[51.463641,-0.647775],
+    how:"In Heartlake City, a short walk south from Deep Sea Adventure. Farmer Joe's Chicken Company in DUPLO Valley is the other good option if you ate early.",
+    rides:[["lunch-done","Lunch","food",false]]},
+  { id:"heartlake", name:"Heartlake City", time:"14:00 to 14:15", ll:[51.463937,-0.648839],
+    how:"A gentle sit-down train after lunch.",
+    rides:[["express","LEGOLAND Express train","no min",false]]},
+  { id:"pharaohs", name:"Kingdom of the Pharaohs", time:"14:15 to 15:00", ll:[51.46330,-0.64900],
+    how:"Laser Raiders is a slow dark ride where you shoot targets with laser guns, and everyone in the car keeps score.",
+    rides:[
+      ["laser","Laser Raiders","no min",true],
+      ["desert","Desert Chase","no min",false],
+      ["aero","Aero Nomad","no min",false],
+      ["scarab","Scarab Bouncers","0.9 m min",false],
+      ["thunder","Thunder Blazer","0.9 m min",false]
+    ]},
+  { id:"ninjago", name:"NINJAGO World", time:"15:00 to 15:30", ll:[51.46320,-0.65040],
+    how:"The Ride uses 3D glasses and hand movements to throw fireballs. No minimum height, but an adult rides with them.",
+    rides:[
+      ["ninjago","NINJAGO The Ride","no min",true],
+      ["destiny","Destiny's Bounty","0.9 m min",false]
+    ]},
+  { id:"pirates", name:"Pirate Shores", time:"15:30 to 16:00", ll:[51.46240,-0.65040],
+    how:"Castaway Camp is a big play area. Let them run while one of you gets a coffee at LEGOLAND Coffee Co.",
+    rides:[
+      ["spider","Spinning Spider","0.9 m min",false],
+      ["castaway","Castaway Camp play area","play",true]
+    ]},
+  { id:"knights", name:"Knights' Kingdom", time:"16:00 to 16:40", ll:[51.46165,-0.65040],
+    how:"Dragon's Apprentice is the first proper coaster for a lot of 4 year olds. It's small and short. Ice cream is at Knights' Delights.",
+    rides:[
+      ["apprentice","Dragon's Apprentice (first coaster)","0.9 m min",true],
+      ["merlin","Merlin's Challenge","0.9 m min",false],
+      ["icecream","Ice cream at Knights' Delights","treat",false],
+      ["forest","Walk back through the Enchanted Forest","walk",false]
+    ]},
+  { id:"hilltrain", name:"Hill Train back up", time:"16:40", ll:[51.463766,-0.650265],
+    how:"Take it from the bottom station. It saves a steep walk with tired legs.",
+    rides:[["hill","Hill Train","no min",false]]},
+  { id:"miniland", name:"Miniland, then the exit", time:"16:50 to close", ll:[51.46450,-0.65160],
+    how:"London, Wembley and the moving boats in LEGO bricks. It's near the exit, so it works as a wind-down. The LEGO Store is at the entrance.",
+    rides:[
+      ["miniland","Miniland walk","walk",false],
+      ["studios","LEGO Studios 4D film (check showtimes)","no min",false]
+    ]}
+];
+
+const EXTRAS = {
+  food:[["Farmer Joe's Chicken Company",51.465548,-0.649997],["City Walk (pizza)",51.463641,-0.647775],["Pirates Burger Kitchen",51.462685,-0.64954],["The Hungry Troll",51.46411,-0.647345],["Knights' Delights (ice cream)",51.461632,-0.650994],["Refresh Cove",51.462433,-0.650652],["LEGOLAND Coffee Co",51.462188,-0.649976],["Beginning Coffee Co",51.463902,-0.653946]],
+  toilets:[[51.46181,-0.650992],[51.46275,-0.649792],[51.463846,-0.654323],[51.465082,-0.65291],[51.46551,-0.650153],[51.465623,-0.650613]],
+  tall:[["The Dragon (1.0 m)",51.461676,-0.651106],["Hydra's Challenge (1.0 m)",51.463993,-0.646782],["Pirate Falls (1.0 m)",51.461855,-0.64931],["Jolly Rocker (1.0 m)",51.462408,-0.650296],["Flight of the Sky Lion (1.0 m)",51.463249,-0.647489],["Fire & Ice Freefall (1.0 m)",51.46372,-0.646943],["Autumn's Riding Adventure (1.2 m)",51.463271,-0.648388]]
+};
+
+const COLOURS = [{c:"#e3000b"},{c:"#006cb7"},{c:"#ffd500",light:true},{c:"#00a650"},{c:"#f57d20"},{c:"#8a3fb3"}];
+const KEY = "legoland-day-ticks";
+let done = new Set(JSON.parse(localStorage.getItem(KEY) || "[]"));
+const fromUrl = new URLSearchParams(location.search).get("done");
+if (fromUrl) { fromUrl.split(",").filter(Boolean).forEach(x => done.add(x)); save(); history.replaceState(null,"",location.pathname); }
+function save(){ localStorage.setItem(KEY, JSON.stringify([...done])); }
+
+const map = L.map("map",{zoomControl:true}).setView([51.4636,-0.6505],17);
+L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png",{maxZoom:20,maxNativeZoom:19,attribution:"© OpenStreetMap"}).addTo(map);
+const icon = html => L.divIcon({html,className:"",iconSize:[34,26],iconAnchor:[17,13],popupAnchor:[0,-14]});
+const miniIcon = c => L.divIcon({html:`<div class="mini" style="background:${c}"></div>`,className:"",iconSize:[14,14],iconAnchor:[7,7]});
+EXTRAS.food.forEach(([n,a,b]) => L.marker([a,b],{icon:miniIcon("#3a86ff")}).addTo(map).bindPopup(n));
+EXTRAS.toilets.forEach(([a,b]) => L.marker([a,b],{icon:miniIcon("#6c757d")}).addTo(map).bindPopup("Toilets"));
+EXTRAS.tall.forEach(([n,a,b]) => L.marker([a,b],{icon:miniIcon("#111")}).addTo(map).bindPopup("Too tall for now: "+n));
+const route = L.polyline(STOPS.map(s=>s.ll),{color:"#e3000b",weight:3,dashArray:"6 6",opacity:.6}).addTo(map);
+map.fitBounds(route.getBounds(),{padding:[24,24]});
+
+const markers = {};
+function isComplete(s){ return s.rides.every(r => done.has(r[0])); }
+function isStarted(s){ return s.rides.some(r => done.has(r[0])); }
+
+function render(){
+  const nextIdx = STOPS.findIndex(s => !isComplete(s));
+  const n = STOPS.flatMap(s=>s.rides).filter(r=>done.has(r[0])).length, total = STOPS.flatMap(s=>s.rides).length;
+  document.getElementById("score").textContent = n===total ? "Master builder! Every brick done" : `${n} of ${total} bricks built`;
+  const box = document.getElementById("stops"); box.innerHTML = "";
+  STOPS.forEach((s,i) => {
+    const complete = isComplete(s), next = i===nextIdx;
+    const div = document.createElement("div");
+    const col = COLOURS[i % COLOURS.length];
+    div.className = "stop" + (col.light?" light":"") + (complete?" done":"") + (next?" next":"");
+    div.style.setProperty("--c", col.c);
+    div.innerHTML = `<h3><span class="num">${i+1}</span>${s.name}<span class="time">${s.time}</span></h3><p>${s.how}</p>` +
+      `<ul class="rides">${s.rides.map(r=>`<li><input type="checkbox" data-id="${r[0]}" ${done.has(r[0])?"checked":""}><span>${r[1]} <span class="tag ${r[3]?"must":""}">${r[3]?"★ ":""}${r[2]}</span></span></li>`).join("")}</ul>`;
+    div.querySelector("h3").onclick = () => { map.setView(s.ll,19); markers[s.id].openPopup(); window.scrollTo({top:0,behavior:"smooth"}); };
+    div.querySelectorAll("input").forEach(cb => cb.onchange = () => { if (cb.checked) { done.add(cb.dataset.id); confetti(); } else done.delete(cb.dataset.id); save(); render(); });
+    box.appendChild(div);
+    const cls = complete ? "done" : next ? "next" : "";
+    const popup = `<b>${i+1}. ${s.name}</b><br>${s.time}<br>${s.rides.map(r=>(done.has(r[0])?"✓ ":"• ")+r[1].replace(/ \(.*\)/,"")).join("<br>")}`;
+    if (markers[s.id]) { markers[s.id].setIcon(icon(`<div class="pin ${cls}"><i></i><i></i>${i+1}</div>`)); markers[s.id].setPopupContent(popup); }
+    else markers[s.id] = L.marker(s.ll,{icon:icon(`<div class="pin ${cls}"><i></i><i></i>${i+1}</div>`),zIndexOffset:1000}).addTo(map).bindPopup(popup);
+  });
+}
+render();
+
+function confetti(){
+  const cols=["#e3000b","#ffd500","#006cb7","#00a650","#f57d20"];
+  for (let k=0;k<28;k++){ const d=document.createElement("div"); d.className="confetti";
+    d.style.left=Math.random()*100+"vw"; d.style.background=cols[k%cols.length]; d.style.animationDelay=Math.random()*.4+"s";
+    document.body.appendChild(d); setTimeout(()=>d.remove(),2200); }
+}
+
+let me, meCircle;
+document.getElementById("locate").onclick = () => {
+  if (!navigator.geolocation) return toast("Location isn't available on this phone");
+  navigator.geolocation.getCurrentPosition(p => {
+    const ll=[p.coords.latitude,p.coords.longitude];
+    if (me) { me.setLatLng(ll); meCircle.setLatLng(ll).setRadius(p.coords.accuracy); }
+    else { meCircle=L.circle(ll,{radius:p.coords.accuracy,color:"#3a86ff",weight:1,fillOpacity:.15}).addTo(map); me=L.circleMarker(ll,{radius:8,color:"#fff",weight:3,fillColor:"#3a86ff",fillOpacity:1}).addTo(map).bindPopup("You are here"); }
+    map.setView(ll,18);
+  }, () => toast("Couldn't get your location. Allow location access and try again."), {enableHighAccuracy:true,timeout:10000});
+};
+document.getElementById("share").onclick = async () => {
+  const url = location.origin + location.pathname + "?done=" + [...done].join(",");
+  try { if (navigator.share) await navigator.share({title:"Legoland progress",url}); else { await navigator.clipboard.writeText(url); toast("Link copied. Send it to the other parent."); } }
+  catch(e) { prompt("Copy this link:", url); }
+};
+document.getElementById("reset").onclick = () => { if (confirm("Clear all ticks on this phone?")) { done.clear(); save(); render(); } };
+function toast(t){ const el=document.getElementById("toast"); el.textContent=t; el.style.display="block"; setTimeout(()=>el.style.display="none",3000); }
+</script>
+</body>
+</html>
