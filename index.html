@@ -61,6 +61,18 @@
   @keyframes fall { to { transform:translateY(105vh) rotate(540deg); } }
   #toast { position:fixed; bottom:16px; left:50%; transform:translateX(-50%); background:var(--black); color:var(--yellow); padding:10px 16px; border-radius:8px; display:none; font-weight:800; z-index:9999; }
   a { color:var(--blue); }
+  .go { margin-top:10px; background:var(--black); color:var(--yellow); box-shadow:0 4px 0 #000; font-size:.95rem; padding:8px 12px; }
+  .stop.light .go { background:var(--black); }
+  #nav { position:fixed; left:8px; right:8px; bottom:8px; z-index:9997; background:var(--yellow); color:var(--black); border:3px solid var(--black); border-radius:12px; padding:10px 12px; box-shadow:0 6px 0 rgba(0,0,0,.3); display:none; max-width:560px; margin:0 auto; }
+  #nav .row { display:flex; align-items:center; gap:8px; }
+  #nav .dest { font-family:"Titan One",sans-serif; font-size:1.05rem; }
+  #nav .meta { font-weight:800; font-size:.9rem; margin-left:auto; white-space:nowrap; }
+  #nav .now { font-weight:800; font-size:1.05rem; margin:8px 0 4px; background:#fff; border-radius:8px; padding:8px 10px; }
+  #nav ol { margin:6px 0 0; padding-left:22px; font-weight:700; font-size:.88rem; max-height:22vh; overflow:auto; background:#fff; border-radius:8px; padding-top:6px; padding-bottom:6px; display:none; }
+  #nav.open ol { display:block; }
+  #nav button { padding:6px 10px; font-size:.85rem; }
+  #nav a { font-weight:800; font-size:.85rem; color:var(--black); }
+  #nav .x { background:var(--red); box-shadow:0 3px 0 #7a0006; }
 </style>
 </head>
 <body>
@@ -80,11 +92,12 @@
 </div>
 <div class="bar">
   <button id="locate">Where am I?</button>
+  <button id="goNext" style="background:var(--red);box-shadow:0 4px 0 #7a0006">Walk to next stop</button>
   <button id="share">Share progress</button>
   <button class="ghost" id="reset">Clear ticks</button>
 </div>
 
-<main>
+<main style="padding-bottom:190px">
   <h2>The one rule for today</h2>
   <p class="note card">Most rides a 90 to 95 cm child can do have a 0.9 m minimum, and an adult must ride with them. Staff measure at the entrance to each ride. If the first measure comes out under 0.9 m, drop the rides marked "0.9 m min" and keep the ones marked "no min". Everything marked 1.0 m or taller is a no today.</p>
 
@@ -114,6 +127,16 @@
   <p class="note">Sources: <a href="https://www.legoland.co.uk/plan-your-day/useful-guides/height-restrictions/">Legoland height restrictions</a>, <a href="https://www.legoland.co.uk/media/2j2pn0yd/ride-attraction-restriction-boards-guide_compressed.pdf">ride safety boards (PDF)</a>, map data © OpenStreetMap contributors. Pin positions come from OpenStreetMap and a few are approximate.</p>
 </main>
 <div id="toast"></div>
+<div id="nav">
+  <div class="row"><span class="dest" id="navDest"></span><span class="meta" id="navMeta"></span></div>
+  <div class="now" id="navNow">Finding you…</div>
+  <ol id="navSteps"></ol>
+  <div class="row" style="margin-top:8px">
+    <button class="ghost" id="navToggle">All steps</button>
+    <a id="navGmaps" target="_blank" rel="noopener">Google Maps</a>
+    <button class="x" id="navStop" style="margin-left:auto">Stop</button>
+  </div>
+</div>
 
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <script>
@@ -222,12 +245,13 @@ function render(){
     div.className = "stop" + (col.light?" light":"") + (complete?" done":"") + (next?" next":"");
     div.style.setProperty("--c", col.c);
     div.innerHTML = `<h3><span class="num">${i+1}</span>${s.name}<span class="time">${s.time}</span></h3><p>${s.how}</p>` +
-      `<ul class="rides">${s.rides.map(r=>`<li><input type="checkbox" data-id="${r[0]}" ${done.has(r[0])?"checked":""}><span>${r[1]} <span class="tag ${r[3]?"must":""}">${r[3]?"★ ":""}${r[2]}</span></span></li>`).join("")}</ul>`;
+      `<ul class="rides">${s.rides.map(r=>`<li><input type="checkbox" data-id="${r[0]}" ${done.has(r[0])?"checked":""}><span>${r[1]} <span class="tag ${r[3]?"must":""}">${r[3]?"★ ":""}${r[2]}</span></span></li>`).join("")}</ul><button class="go" data-go="${i}">Take me there</button>`;
+    div.querySelector(".go").onclick = () => startNav(i);
     div.querySelector("h3").onclick = () => { map.setView(s.ll,19); markers[s.id].openPopup(); window.scrollTo({top:0,behavior:"smooth"}); };
     div.querySelectorAll("input").forEach(cb => cb.onchange = () => { if (cb.checked) { done.add(cb.dataset.id); confetti(); } else done.delete(cb.dataset.id); save(); render(); });
     box.appendChild(div);
     const cls = complete ? "done" : next ? "next" : "";
-    const popup = `<b>${i+1}. ${s.name}</b><br>${s.time}<br>${s.rides.map(r=>(done.has(r[0])?"✓ ":"• ")+r[1].replace(/ \(.*\)/,"")).join("<br>")}`;
+    const popup = `<b>${i+1}. ${s.name}</b><br>${s.time}<br>${s.rides.map(r=>(done.has(r[0])?"✓ ":"• ")+r[1].replace(/ \(.*\)/,"")).join("<br>")}<br><button class="go" onclick="startNav(${i})">Take me there</button>`;
     if (markers[s.id]) { markers[s.id].setIcon(icon(`<div class="pin ${cls}"><i></i><i></i>${i+1}</div>`)); markers[s.id].setPopupContent(popup); }
     else markers[s.id] = L.marker(s.ll,{icon:icon(`<div class="pin ${cls}"><i></i><i></i>${i+1}</div>`),zIndexOffset:1000}).addTo(map).bindPopup(popup);
   });
@@ -241,16 +265,112 @@ function confetti(){
     document.body.appendChild(d); setTimeout(()=>d.remove(),2200); }
 }
 
-let me, meCircle;
-document.getElementById("locate").onclick = () => {
+let me, meCircle, pollId=null, watchId=null, nav=null, routeLine=null, lastFix=null;
+const WALK_M_PER_MIN = 50; // small-legs pace
+const LANDMARKS = [
+  ...STOPS.map(s=>[s.name,...s.ll]), ...EXTRAS.food, ...EXTRAS.tall.map(t=>[t[0].replace(/ \(.*\)/,""),t[1],t[2]]),
+  ["Hill Train bottom station",51.463766,-0.650265],["Hill Train top station",51.464199,-0.653639],["the entrance",51.463644,-0.654281],
+  ["Balloon School",51.464477,-0.64999],["Fire Academy",51.464229,-0.650214],["Laser Raiders",51.463388,-0.649107],["Spinning Spider",51.462808,-0.650583],
+  ["Haunted House",51.464653,-0.6483],["Deep Sea Adventure",51.465424,-0.647783],["Miniland",51.464485,-0.651596]
+];
+function dist(a,b){ const R=6371000,t=Math.PI/180,dl=(b[0]-a[0])*t,dn=(b[1]-a[1])*t;
+  const h=Math.sin(dl/2)**2+Math.cos(a[0]*t)*Math.cos(b[0]*t)*Math.sin(dn/2)**2; return 2*R*Math.asin(Math.sqrt(h)); }
+function near(ll){ let best=null,bd=45; LANDMARKS.forEach(([n,a,b])=>{ const d=dist(ll,[a,b]); if(d<bd){bd=d;best=n;} }); return best; }
+const fmt = m => m<1000 ? Math.round(m/5)*5+" m" : (m/1000).toFixed(1)+" km";
+const mins = m => Math.max(1,Math.round(m/WALK_M_PER_MIN))+" min";
+function stepText(st){
+  const mt=st.maneuver.type, mod=(st.maneuver.modifier||"").replace("slight ","slightly ").replace("sharp ","sharply ");
+  const lm=near([st.maneuver.location[1],st.maneuver.location[0]]), at=lm?` by ${lm}`:"";
+  if (mt==="depart") return `Head off${mod&&mod!=="straight"?" and bear "+mod:""}, walk ${fmt(st.distance)}`;
+  if (mt==="arrive") return `You're there${lm?": "+lm:""}`;
+  const turn = !mod||mod==="straight" ? "Carry straight on" : mod==="uturn" ? "Turn round" : `Turn ${mod}`;
+  return `${turn}${at}, then walk ${fmt(st.distance)}`;
+}
+function showMe(p){
+  const ll=[p.coords.latitude,p.coords.longitude];
+  if (me) { me.setLatLng(ll); meCircle.setLatLng(ll).setRadius(p.coords.accuracy); }
+  else { meCircle=L.circle(ll,{radius:p.coords.accuracy,color:"#3a86ff",weight:1,fillOpacity:.15}).addTo(map); me=L.circleMarker(ll,{radius:8,color:"#fff",weight:3,fillColor:"#3a86ff",fillOpacity:1}).addTo(map).bindPopup("You are here"); }
+  return ll;
+}
+function locateOnce(ok){
   if (!navigator.geolocation) return toast("Location isn't available on this phone");
-  navigator.geolocation.getCurrentPosition(p => {
-    const ll=[p.coords.latitude,p.coords.longitude];
-    if (me) { me.setLatLng(ll); meCircle.setLatLng(ll).setRadius(p.coords.accuracy); }
-    else { meCircle=L.circle(ll,{radius:p.coords.accuracy,color:"#3a86ff",weight:1,fillOpacity:.15}).addTo(map); me=L.circleMarker(ll,{radius:8,color:"#fff",weight:3,fillColor:"#3a86ff",fillOpacity:1}).addTo(map).bindPopup("You are here"); }
-    map.setView(ll,18);
-  }, () => toast("Couldn't get your location. Allow location access and try again."), {enableHighAccuracy:true,timeout:10000});
-};
+  navigator.geolocation.getCurrentPosition(p=>ok(showMe(p)), ()=>toast("Couldn't get your location. Allow location access and try again."), {enableHighAccuracy:true,timeout:12000});
+}
+document.getElementById("locate").onclick = () => locateOnce(ll=>map.setView(ll,18));
+document.getElementById("goNext").onclick = () => { const i=STOPS.findIndex(s=>!isComplete(s)); startNav(i<0?STOPS.length-1:i); };
+
+async function fetchRoute(from,to){
+  const u=`https://routing.openstreetmap.de/routed-foot/route/v1/foot/${from[1]},${from[0]};${to[1]},${to[0]}?overview=full&geometries=geojson&steps=true`;
+  const r=await fetch(u); const d=await r.json(); if(d.code!=="Ok") throw new Error(d.code); return d.routes[0];
+}
+async function routeFrom(ll){
+  if (!nav) return;
+  const s=STOPS[nav.i]; nav.from=ll; nav.routing=true;
+  try {
+    const r=await fetchRoute(ll,s.ll); if(!nav) return;
+    nav.route=r; nav.line=r.geometry.coordinates.map(c=>[c[1],c[0]]); nav.steps=r.legs[0].steps;
+    if (routeLine) routeLine.remove();
+    routeLine=L.polyline(nav.line,{color:"#1b1b1b",weight:7,opacity:.85,dashArray:"1 12",lineCap:"round"}).addTo(map);
+    document.getElementById("navSteps").innerHTML=nav.steps.map(st=>`<li>${stepText(st)}</li>`).join("");
+    if (!nav.fitted) { map.fitBounds(routeLine.getBounds().extend(ll),{padding:[40,40]}); nav.fitted=true; }
+    update(ll);
+  } catch(e) {
+    nav.line=[ll,s.ll]; nav.steps=null;
+    if (routeLine) routeLine.remove();
+    routeLine=L.polyline(nav.line,{color:"#1b1b1b",weight:5,dashArray:"4 10"}).addTo(map);
+    document.getElementById("navSteps").innerHTML="<li>Route service unavailable, so this is a straight line. Follow the park signs.</li>";
+    update(ll);
+  } finally { if(nav) nav.routing=false; }
+}
+function offRoute(ll){ if(!nav||!nav.line) return 0; return Math.min(...nav.line.map(p=>dist(ll,p))); }
+function update(ll){
+  if (!nav) return;
+  const s=STOPS[nav.i], left=dist(ll,s.ll);
+  if (left<25) { toast(`You're at ${s.name}! Time to build.`); confetti(); return stopNav(); }
+  let remaining=left, now="Walk towards the pin";
+  if (nav.steps) {
+    // remaining = distance along route from the nearest route point
+    let k=0,bd=1e9; nav.line.forEach((p,j)=>{const d=dist(ll,p); if(d<bd){bd=d;k=j;}});
+    remaining=bd; for(let j=k;j<nav.line.length-1;j++) remaining+=dist(nav.line[j],nav.line[j+1]);
+    // next manoeuvre = first step whose location is still ahead of us along the line
+    const idxOf = loc => { let kk=0,b=1e9; nav.line.forEach((p,j)=>{const d=dist([loc[1],loc[0]],p); if(d<b){b=d;kk=j;}}); return kk; };
+    const nxt = nav.steps.find((st,j)=> j>0 && idxOf(st.maneuver.location)>k) || nav.steps[nav.steps.length-1];
+    const toTurn = dist(ll,[nxt.maneuver.location[1],nxt.maneuver.location[0]]);
+    now = nxt.maneuver.type==="arrive" ? `Keep going, ${fmt(toTurn)} to ${s.name}` : `In ${fmt(toTurn)}: ${stepText(nxt).replace(/, then walk.*$/,"")}`;
+  }
+  document.getElementById("navMeta").textContent=`${fmt(remaining)} · about ${mins(remaining)}`;
+  document.getElementById("navNow").textContent=now;
+}
+function startNav(i){
+  if (!navigator.geolocation) return toast("Location isn't available on this phone");
+  stopNav(true);
+  const s=STOPS[i]; nav={i,fitted:false};
+  document.getElementById("navDest").textContent=`→ ${i+1}. ${s.name}`;
+  document.getElementById("navMeta").textContent="";
+  document.getElementById("navNow").textContent="Finding you…";
+  document.getElementById("navSteps").innerHTML="";
+  document.getElementById("navGmaps").href=`https://www.google.com/maps/dir/?api=1&destination=${s.ll[0]},${s.ll[1]}&travelmode=walking`;
+  document.getElementById("nav").style.display="block";
+  map.closePopup(); window.scrollTo({top:0,behavior:"smooth"});
+  const onFix = p => {
+    if (!nav) return; const ll=showMe(p);
+    if (!nav.from) { if (!nav.routing) routeFrom(ll); return; }
+    if (!nav.routing && offRoute(ll)>35 && Date.now()-(lastFix||0)>10000) { lastFix=Date.now(); return routeFrom(ll); }
+    update(ll);
+  };
+  const onErr = e => { if (e.code===1) { toast("Location is blocked. Allow it for this page in your browser settings."); stopNav(); } };
+  const opts = {enableHighAccuracy:true,maximumAge:2000};
+  watchId=navigator.geolocation.watchPosition(onFix, onErr, opts);
+  // phones sometimes go quiet while you stand still, so also ask every 4 seconds
+  pollId=setInterval(()=>navigator.geolocation.getCurrentPosition(onFix, onErr, {...opts,timeout:8000}), 4000);
+}
+function stopNav(quiet){
+  if (watchId!==null) navigator.geolocation.clearWatch(watchId); watchId=null; clearInterval(pollId); nav=null;
+  if (routeLine) { routeLine.remove(); routeLine=null; }
+  document.getElementById("nav").style.display="none"; document.getElementById("nav").classList.remove("open");
+}
+document.getElementById("navStop").onclick=()=>stopNav();
+document.getElementById("navToggle").onclick=()=>document.getElementById("nav").classList.toggle("open");
 document.getElementById("share").onclick = async () => {
   const url = location.origin + location.pathname + "?done=" + [...done].join(",");
   try { if (navigator.share) await navigator.share({title:"Legoland progress",url}); else { await navigator.clipboard.writeText(url); toast("Link copied. Send it to the other parent."); } }
